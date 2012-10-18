@@ -70,8 +70,8 @@ certo_direct:
   password: vP6OwK3
 
 check_gateway:
-  login: demo
-  password: demo
+  login: X
+  password: Y
 
 cyber_source:
   login: X

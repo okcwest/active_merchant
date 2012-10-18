@@ -27,12 +27,28 @@ module ActiveMerchant #:nodoc:
       # The name of the gateway
       self.display_name = 'CheckGateway'
 
+      ACH_STATUS_CODES = {
+          :Incomplete       => 'Transaction was saved in the database, but remains in an incompleted state. Transactions should only remain in this status for 1 second.',
+          :Unverified       => 'Consumer verification pending.',
+          :Verifying        => 'Consumer verification is being performed.',
+          :Declined         => 'Consumer verification was negative for this transaction.',
+          :Accepted         => 'Transaction was accepted by CheckGateway and awaits Origination.',
+          :Cancelled        => 'Merchant opted to cancel this transaction.',
+          :'B.O.Processing' => 'Transaction is being prepared for Origination by the Back-Office.',
+          :'B.O.Exception'  => 'Transaction was declined by Back-Office validation.',
+          :Originated       => 'Transaction was sent to the bank.',
+          :Funded           => 'Merchant has been paid for this transaction.',
+          :Refunded         => 'Merchant opted to issue a refund for this transaction.',
+          :Returned         => 'Transaction was returned (cancelled) by the bank and/or consumer.',
+      }
+
       def initialize(options = {})
         requires!(options, :login, :password)
         @options = options
         super
       end
 
+      # Performs consumer verification without actually creating a transaction.
       def authorize(money, check, options = {})
         post = {}
         add_reference(post, options)
@@ -42,6 +58,8 @@ module ActiveMerchant #:nodoc:
         commit('Authorize', money, post)
       end
 
+      # Performs consumer verification and then creates a transaction that
+      # takes money from the consumer.
       def purchase(money, check, options = {})
         post = {}
         add_reference(post, options)
@@ -52,6 +70,8 @@ module ActiveMerchant #:nodoc:
         commit('Debit', money, post)
       end
 
+      # Performs consumer verification and then creates a transaction that
+      # gives money to the consumer.
       def credit(money, check, options = {})
         post = {}
         add_reference(post, options)
@@ -62,13 +82,20 @@ module ActiveMerchant #:nodoc:
         commit('Credit', money, post)
       end
 
+      # A Refund is like a Credit except that it counteracts a particular
+      # Debit submitted previously. No consumer verification is performed.
+      # A Debit may only be refunded after it has been Originated. If the
+      # Debit has not yet been Originated, then it may be Cancelled instead.
       def refund(money, options)
         post = {}
         add_reference_or_txn_id(post, options)
         add_notes(post, options)
-        commit('Cancel', money, post)
+        commit('Refund', money, post)
       end
       
+      # Cancels a Debit or Credit while it is still in Accepted status,
+      # before being Originated. If a transaction has already been Originated,
+      # then instead of being Cancelled, it will have to be Refunded.
        def cancel(options)
         post = {}
         add_reference_or_txn_id(post, options)
@@ -76,14 +103,16 @@ module ActiveMerchant #:nodoc:
         commit('Cancel', nil, post)
       end
 
+      # Creates a new debit to replace a previous debit that was Returned by the bank.
       def resubmit(money, check = nil, options = {})
         post = {}
         add_reference_or_txn_id(post, options)
         add_check(post, check) if check
         add_notes(post, options)
-        commit('Credit', money, post)
+        commit('Resubmit', money, post)
       end
       
+      # Retrieves the current status of a transaction submitted previously.
       def status(options)
         post = {}
         add_reference_or_txn_id(post, options)

@@ -1,5 +1,7 @@
 require 'test_helper'
 
+require 'pry'
+
 class RemoteCheckGatewayTest < Test::Unit::TestCase
   
   # Special number defined in CheckGateway docs that can be used to trigger
@@ -32,7 +34,7 @@ class RemoteCheckGatewayTest < Test::Unit::TestCase
   end
   
   def new_options
-    @options = {
+    {
         :order_id => new_order_id,
         :billing_address => address(:zip => '94101', :country => 'US'),
         :description => 'Store Purchase'
@@ -81,6 +83,35 @@ class RemoteCheckGatewayTest < Test::Unit::TestCase
     assert response = gateway.purchase(@amount, @valid_check, new_options)
     assert_failure response
     assert_equal 'Invalid Login.', response.message
+  end
+
+  def test_credit
+    options = new_options.merge(:sec_code => 'CCD')
+    assert response = @gateway.credit(@amount, @valid_check, options)
+    assert_success response
+  end
+  
+  def test_cancel
+    options = new_options
+    assert response = @gateway.purchase(@amount, @valid_check, options)
+    assert_success response
+
+    cancel_options = { :order_id => options[:order_id] }
+    assert cancel_response = @gateway.cancel(cancel_options)
+    assert_success cancel_response
+    assert_equal 'Accepted, Cancelled', cancel_response.params['Status']
+  end
+
+  # NOTE: this test is disabled 'cause I don't know of a way to force
+  # a transaction into a 'Originated' or 'Funded' state.
+  def dont_test_refund
+    options = new_options
+    assert response = @gateway.purchase(@amount, @valid_check, options)
+    assert_success response
+
+    refund_options = { :order_id => options[:order_id] }
+    assert refund_response = @gateway.refund(@amount, refund_options)
+    assert_success refund_response
   end
 
 end
