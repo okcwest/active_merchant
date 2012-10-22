@@ -1,8 +1,10 @@
-require 'time'
+require File.dirname(__FILE__) + '/check_gateway/check_gateway_utils'
 
 module ActiveMerchant #:nodoc:
   module Billing #:nodoc:
     class CheckGatewayGateway < Gateway
+      include CheckGatewayUtils
+      
       API_VERSION = '1.4.2'
       
       TEST_GATEWAY       = 'https://Test.CheckGateway.com'     # for new development
@@ -159,38 +161,21 @@ module ActiveMerchant #:nodoc:
         add_param(post, options, :SSN,   :ssn,                  11)
         add_param(post, options, :DLN,   :drivers_license_num,  40)
         add_param(post, options, :DLS,   :drivers_license_state, 2)
-
-        post[:Birthday] = format_date(options[:birthday]) if options[:birthday]
+        add_date_param(post, options, :Birthday, :birthday)
       end
       
 
       def add_extra_options(post, options)
         add_param(post, options, :SECCode,    :sec_code,    3)
         add_param(post, options, :Descriptor, [:descriptor, :description], 10)
-
-        post[:OriginateDate] = format_date(options[:originate_date]) if options[:originate_date]
+        add_date_param(post, options, :OriginateDate, :originate_date)
       end
       
       def add_notes(post, options)
         add_param(post, options, :Notes, :notes, 60)
       end
 
-      
-      
-      def add_param(post_hash, options_hash, param_name, options_key, max_length)
-        value = nil
-        options_key = [options_key] unless options_key.is_a?(Array)
-        options_key.each { |key| value ||= options_hash[key] }
-        post_hash[param_name] = value.to_s[0..max_length-1] if value
-      end
-
-      def format_date(value)
-        if value
-          value = Time.parse(value) unless value.respond_to?(:strftime)
-          value.strftime('%-m/%-d/%Y')
-        end
-      end
-      
+            
       def commit(action, money, parameters)
         parameters[:Amount] = amount(money) if money
 
