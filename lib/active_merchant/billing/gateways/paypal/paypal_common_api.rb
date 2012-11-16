@@ -65,22 +65,18 @@ module ActiveMerchant #:nodoc:
         requires!(options, :login, :password)
 
         headers = {'X-PP-AUTHORIZATION' => options.delete(:auth_signature), 'X-PAYPAL-MESSAGE-PROTOCOL' => 'SOAP11'} if options[:auth_signature]
-        @options = {
+        options = {
           :pem => pem_file,
           :signature => signature,
           :headers => headers || {}
         }.update(options)
 
 
-        if @options[:pem].blank? && @options[:signature].blank?
+        if options[:pem].blank? && options[:signature].blank?
           raise ArgumentError, "An API Certificate or API Signature is required to make requests to PayPal"
         end
 
-        super
-      end
-
-      def test?
-        @options[:test] || Base.gateway_mode == :test
+        super(options)
       end
 
       def reauthorize(money, authorization, options = {})
@@ -509,10 +505,10 @@ module ActiveMerchant #:nodoc:
       def add_credentials(xml)
         xml.tag! 'RequesterCredentials', CREDENTIALS_NAMESPACES do
           xml.tag! 'n1:Credentials' do
-            xml.tag! 'Username', @options[:login]
-            xml.tag! 'Password', @options[:password]
-            xml.tag! 'Subject', @options[:subject]
-            xml.tag! 'Signature', @options[:signature] unless @options[:signature].blank?
+            xml.tag! 'n1:Username', @options[:login]
+            xml.tag! 'n1:Password', @options[:password]
+            xml.tag! 'n1:Subject', @options[:subject]
+            xml.tag! 'n1:Signature', @options[:signature] unless @options[:signature].blank?
           end
         end
       end

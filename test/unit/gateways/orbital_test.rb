@@ -48,7 +48,7 @@ class OrbitalGatewayTest < Test::Unit::TestCase
     response = stub_comms do
       @gateway.purchase(101, credit_card, :order_id => "#1001.1")
     end.check_request do |endpoint, data, headers|
-      assert_match /<OrderID>1001-1<\/OrderID>/, data
+      assert_match(/<OrderID>1001-1<\/OrderID>/, data)
     end.respond_with(successful_purchase_response)
     assert_success response
   end
@@ -57,7 +57,7 @@ class OrbitalGatewayTest < Test::Unit::TestCase
     response = stub_comms do
       @gateway.capture(101, "4A5398CF9B87744GG84A1D30F2F2321C66249416;1001.1", :order_id => "#1001.1")
     end.check_request do |endpoint, data, headers|
-      assert_match /<OrderID>1001-1<\/OrderID>/, data
+      assert_match(/<OrderID>1001-1<\/OrderID>/, data)
     end.respond_with(successful_purchase_response)
     assert_success response
   end
@@ -132,6 +132,8 @@ class OrbitalGatewayTest < Test::Unit::TestCase
       assert_match(/<AVScountryCode>CA/, data)
     end.respond_with(successful_purchase_response)
     assert_success response
+    assert_equal 'Y', response.avs_result['street_match']
+    assert_equal 'Y', response.avs_result['postal_match']
   end
 
   def test_dont_send_address_details_for_germany
@@ -145,7 +147,7 @@ class OrbitalGatewayTest < Test::Unit::TestCase
       assert_no_match(/<AVSstate>ON/, data)
       assert_no_match(/<AVSphoneNum>5555555555/, data)
       assert_match(/<AVSname>Longbob Longsen/, data)
-      assert_match(/<AVScountryCode><\/AVScountryCode>/, data)
+      assert_match(/<AVScountryCode(\/>|><\/AVScountryCode>)/, data)
     end.respond_with(successful_purchase_response)
     assert_success response
   end
@@ -216,6 +218,14 @@ class OrbitalGatewayTest < Test::Unit::TestCase
     assert_success response
   end
 
+  def test_attempts_seconday_url
+    @gateway.expects(:ssl_post).with(OrbitalGateway.test_url, anything, anything).raises(ActiveMerchant::ConnectionError)
+    @gateway.expects(:ssl_post).with(OrbitalGateway.secondary_test_url, anything, anything).returns(successful_purchase_response)
+
+    response = @gateway.purchase(50, credit_card, :order_id => '1')
+    assert_success response
+  end
+
   private
 
   # Place raw successful response from gateway here
@@ -231,5 +241,4 @@ class OrbitalGatewayTest < Test::Unit::TestCase
   def successful_profile_response
     %q{<?xml version="1.0" encoding="UTF-8"?><Response><ProfileResp><CustomerBin>000001</CustomerBin><CustomerMerchantID>700000000000</CustomerMerchantID><CustomerName>Longbob Longsen</CustomerName><CustomerRefNum>ABC</CustomerRefNum><CustomerProfileAction>CREATE</CustomerProfileAction><ProfileProcStatus>0</ProfileProcStatus><CustomerProfileMessage>Profile Request Processed</CustomerProfileMessage><CustomerAccountType>CC</CustomerAccountType><Status>A</Status><CCAccountNum>4111111111111111</CCAccountNum><RespTime/></ProfileResp></Response>}
   end
-
 end

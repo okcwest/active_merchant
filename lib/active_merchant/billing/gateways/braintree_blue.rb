@@ -57,18 +57,20 @@ module ActiveMerchant #:nodoc:
 
       def initialize(options = {})
         requires!(options, :merchant_id, :public_key, :private_key)
-        @options = options
         @merchant_account_id = options[:merchant_account_id]
+
+        super
+
         Braintree::Configuration.merchant_id = options[:merchant_id]
         Braintree::Configuration.public_key = options[:public_key]
         Braintree::Configuration.private_key = options[:private_key]
         Braintree::Configuration.environment = (options[:environment] || (test? ? :sandbox : :production)).to_sym
         Braintree::Configuration.custom_user_agent = "ActiveMerchant #{ActiveMerchant::VERSION}"
+
         if wiredump_device
           Braintree::Configuration.logger = wiredump_device
           Braintree::Configuration.logger.level = Logger::DEBUG
         end
-        super
       end
 
       def authorize(money, credit_card_or_vault_id, options = {})
@@ -93,7 +95,7 @@ module ActiveMerchant #:nodoc:
       def refund(*args)
         # legacy signature: #refund(transaction_id, options = {})
         # new signature: #refund(money, transaction_id, options = {})
-        money, transaction_id, options = extract_refund_args(args)
+        money, transaction_id, _ = extract_refund_args(args)
         money = amount(money).to_s if money
 
         commit do
@@ -140,7 +142,7 @@ module ActiveMerchant #:nodoc:
 
       def update(vault_id, creditcard, options = {})
         braintree_credit_card = nil
-        customer_update_result = commit do
+        commit do
           braintree_credit_card = Braintree::Customer.find(vault_id).credit_cards.detect { |cc| cc.default? }
           return Response.new(false, 'Braintree::NotFoundError') if braintree_credit_card.nil?
 
@@ -362,9 +364,15 @@ module ActiveMerchant #:nodoc:
             :submit_for_settlement => options[:submit_for_settlement]
           }
         }
+
         if merchant_account_id = (options[:merchant_account_id] || @merchant_account_id)
           parameters[:merchant_account_id] = merchant_account_id
         end
+
+        if options[:recurring]
+          parameters[:recurring] = true
+        end
+
         if credit_card_or_vault_id.is_a?(String) || credit_card_or_vault_id.is_a?(Integer)
           parameters[:customer_id] = credit_card_or_vault_id
         else

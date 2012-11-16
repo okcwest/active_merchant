@@ -156,6 +156,10 @@ itransact:
 jetpay:
   login: TESTTERMINAL
 
+hdfc:
+  login: LOGIN
+  password: PASSWORD
+
 iridium:
     login: LOGIN
     password: PASSWORD
@@ -318,6 +322,10 @@ plugnpay:
 pxpay:
   login: LOGIN
   password: PASSWORD
+
+redsys:
+  login: MERCHANT CODE
+  secret_key: SECRET KEY
 
 sage_pay:
   login: LOGIN
@@ -552,6 +560,9 @@ viaklix:
 vindicia:
   login: LOGIN
   password: PASSWORD
+
+webpay:
+  login: "vtUQeOtUnYr7PGCLQ96Ul4zqpDUO4sOE"
 
 # Working test credentials, no need to replace
 wirecard:

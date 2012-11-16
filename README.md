@@ -105,6 +105,7 @@ The [ActiveMerchant Wiki](http://github.com/Shopify/active_merchant/wikis) conta
 * [Federated Canada](http://www.federatedcanada.com/) - CA
 * [FirstPay](http://www.first-pay.com) - US
 * [Garanti Sanal POS](https://ccpos.garanti.com.tr/ccRaporlar/garanti/ccReports) - US, TR
+* [HDFC](http://www.hdfcbank.com/sme/sme-details/merchant-services/guzh6m0i) - IN
 * [Inspire](http://www.inspiregateway.com) - US
 * [InstaPay](http://www.instapayllc.com) - US
 * [Iridium](http://www.iridiumcorp.co.uk/) - UK, ES
@@ -148,6 +149,7 @@ The [ActiveMerchant Wiki](http://github.com/Shopify/active_merchant/wikis) conta
 * [Quickpay](http://quickpay.dk/) - DK, SE
 * [Rabobank Nederland](http://www.rabobank.nl/) - NL
 * [Realex](http://www.realexpayments.com/) - IE, UK
+* [Redsys](http://www.redsys.es) - ES
 * [SagePay](http://www.sagepay.com) - UK
 * [Sage Payment Solutions](http://www.sagepayments.com) - US, CA
 * [Sallie Mae](http://www.salliemae.com) - US
@@ -163,12 +165,14 @@ The [ActiveMerchant Wiki](http://github.com/Shopify/active_merchant/wikis) conta
 * [Verifi](http://www.verifi.com/) - US
 * [ViaKLIX](http://viaklix.com) - US
 * [Vindica](http://www.vindicia.com/) - US, CA, UK, AU, MX, BR, DE, KR, CN, HK
+* [WebPay](https://webpay.jp/) - JP
 * [Wirecard](http://www.wirecard.com) - DE
 * [WorldPay](http://www.worldpay.com) - AU, HK, UK, US
 
 ## Supported Offsite Payment Gateways
 
 * [2 Checkout](http://www.2checkout.com)
+* [A1Agregator](http://a1agregator.ru/) - RU
 * [Authorize.Net SIM](http://developer.authorize.net/api/sim/) - US
 * [Banca Sella GestPay](https://www.sella.it/banca/ecommerce/gestpay/gestpay.jsp)
 * [Chronopay](http://www.chronopay.com)

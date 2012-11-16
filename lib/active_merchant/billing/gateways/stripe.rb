@@ -21,7 +21,7 @@ module ActiveMerchant #:nodoc:
         'unchecked' => 'P'
       }
 
-      self.supported_countries = ['US']
+      self.supported_countries = ['US', 'CA']
       self.default_currency = 'USD'
       self.money_format = :cents
       self.supported_cardtypes = [:visa, :master, :american_express, :discover, :jcb, :diners_club]
@@ -48,6 +48,7 @@ module ActiveMerchant #:nodoc:
         add_amount(post, money, options)
         add_creditcard(post, creditcard, options)
         add_customer(post, options)
+        add_customer_data(post,options)
         post[:description] = options[:description] || options[:email]
         add_flags(post, options)
 
@@ -105,8 +106,11 @@ module ActiveMerchant #:nodoc:
       end
 
       def add_customer_data(post, options)
-        post[:description] = options[:description]
-        post[:email] = options[:email]
+        metadata_options = [:description,:browser_ip,:user_agent,:referrer]
+        post.update(options.slice(*metadata_options))
+
+        post[:external_id] = options[:order_id]
+        post[:payment_user_agent] = "Stripe/v1 ActiveMerchantBindings/#{ActiveMerchant::VERSION}"
       end
 
       def add_address(post, options)
@@ -117,6 +121,7 @@ module ActiveMerchant #:nodoc:
           post[:card][:address_country] = address[:country] if address[:country]
           post[:card][:address_zip] = address[:zip] if address[:zip]
           post[:card][:address_state] = address[:state] if address[:state]
+          post[:card][:address_city] = address[:city] if address[:city]
         end
       end
 
