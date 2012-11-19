@@ -1,9 +1,9 @@
-require File.dirname(__FILE__) + '/check_gateway/check_gateway_utils'
+Dir[File.expand_path('check_gateway/*.rb', File.dirname(__FILE__))].each { |file| require file }
 
 module ActiveMerchant #:nodoc:
   module Billing #:nodoc:
     class CheckGatewayGateway < Gateway
-      include CheckGatewayUtils
+      include CheckGateway::Utils
       
       API_VERSION = '1.4.2'
       

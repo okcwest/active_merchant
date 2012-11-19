@@ -1,5 +1,4 @@
-require File.dirname(__FILE__) + '/check_gateway/check_gateway_status_record'
-require File.dirname(__FILE__) + '/check_gateway/check_gateway_utils'
+Dir[File.expand_path('check_gateway/*.rb', File.dirname(__FILE__))].each { |file| require file }
 
 module ActiveMerchant #:nodoc:
   module Billing #:nodoc:
@@ -25,7 +24,7 @@ module ActiveMerchant #:nodoc:
     class CheckGatewayDownloaderGateway
       include PostsData
       include RequiresParameters
-      include CheckGatewayUtils
+      include CheckGateway::Utils
       
       API_VERSION = '1.4.2'
       VALID_FORMATS = %w(TXT XML)
@@ -83,8 +82,6 @@ module ActiveMerchant #:nodoc:
         url = test? ? self.test_url : self.live_url
         data = ssl_post(url, post_data(parameters))
         parse(data)
-      rescue Exception => e
-        binding.pry
       end
 
       def post_data(parameters = {})
@@ -100,7 +97,7 @@ module ActiveMerchant #:nodoc:
       def parse(data)
         records = []
         data.each_line do |line|
-          records << CheckGatewayStatusRecord.new(line)
+          records << CheckGateway::StatusRecord.new(line)
         end
         records
       end

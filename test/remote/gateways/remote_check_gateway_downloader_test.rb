@@ -16,7 +16,7 @@ class RemoteCheckGatewayDownloaderTest < Test::Unit::TestCase
     assert response = @gateway.download(false, options)
     assert response.is_a?(Array)
     response.each do |record|
-      assert record.is_a?(CheckGatewayStatusRecord), "One of the responses was a #{record.class}"
+      assert record.is_a?(CheckGateway::StatusRecord), "One of the responses was a #{record.class}"
       assert !record.response_type.blank?, "response_type blank for record with line: #{record.raw_line}"
     end
   end
@@ -25,7 +25,7 @@ class RemoteCheckGatewayDownloaderTest < Test::Unit::TestCase
     assert response = @gateway.download(true)
     assert response.is_a?(Array)
     response.each do |record|
-      assert record.is_a?(CheckGatewayStatusRecord), "One of the responses was a #{record.class}"
+      assert record.is_a?(CheckGateway::StatusRecord), "One of the responses was a #{record.class}"
       assert !record.response_type.blank?, "response_type blank for record with line: #{record.raw_line}"
     end
   end

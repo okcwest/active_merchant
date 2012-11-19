@@ -1,5 +1,4 @@
 require 'test_helper'
-require 'pry'
 
 class CheckGatewayDownloaderTest < Test::Unit::TestCase
   def setup
@@ -18,7 +17,7 @@ class CheckGatewayDownloaderTest < Test::Unit::TestCase
     assert response.is_a?(Array)
     assert response.size > 0
     response.each do |record|
-      assert record.is_a?(CheckGatewayStatusRecord), "One of the responses was a #{record.class}"
+      assert record.is_a?(CheckGateway::StatusRecord), "One of the responses was a #{record.class}"
       assert !record.response_type.blank?, "response_type blank for record with line: #{record.raw_line}"
     end
   end
