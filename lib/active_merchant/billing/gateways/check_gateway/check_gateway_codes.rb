@@ -65,7 +65,7 @@ module ActiveMerchant #:nodoc:
         def initialize(code)
           @raw_code = code || ''
           @code_list = @raw_code.downcase.split(', ').map { |v| v.gsub(/\W/, '_').to_sym }
-          @code = (@code_list.count == 1) ? @code_list.first : @code_list
+          @code = (@code_list.count > 1) ? @code_list : @code_list.first
         end
         
         def mapping

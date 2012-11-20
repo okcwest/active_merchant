@@ -1,7 +1,5 @@
 require 'test_helper'
 
-require 'pry'
-
 class RemoteCheckGatewayTest < Test::Unit::TestCase
   
   # Special number defined in CheckGateway docs that can be used to trigger
