@@ -6,15 +6,13 @@ class CheckGatewayDownloaderTest < Test::Unit::TestCase
       :login => 'login',
       :password => 'password'
     )
-
-    @options = { }
   end
 
   def test_download
     @gateway.expects(:ssl_post).returns(successful_response)
 
     assert @gateway.data.nil?
-    assert response = @gateway.download(false, @options)
+    assert response = @gateway.download
     assert response.is_a?(Array)
     assert response.size > 0
     response.each do |record|
@@ -30,8 +28,7 @@ class CheckGatewayDownloaderTest < Test::Unit::TestCase
     filename = '/tmp/check_gateway_download_path.txt'
     File.delete(filename) if File.exists?(filename)
 
-    @options[:save_to] = filename
-    assert response = @gateway.download(false, @options)
+    assert response = @gateway.download(:save_to => filename)
 
     assert File.exists?(filename)
     assert File.readable?(filename)
@@ -46,8 +43,7 @@ class CheckGatewayDownloaderTest < Test::Unit::TestCase
     
     file_obj = File.open(filename, 'w')
 
-    @options[:save_to] = file_obj
-    assert response = @gateway.download(false, @options)
+    assert response = @gateway.download(:save_to => file_obj)
     file_obj.close
 
     assert IO.read(filename) == successful_response

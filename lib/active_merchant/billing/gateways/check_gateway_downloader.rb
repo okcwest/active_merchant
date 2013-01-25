@@ -11,14 +11,6 @@ module ActiveMerchant #:nodoc:
     # Merchant Center website. The file is generated automatically at the
     # time of the request using the data available at that moment."
     #
-    # The status file can be requested with or without the "incremental"
-    # option.  Choosing the incremental option will return all the
-    # transactions that have changed since the last time a request was
-    # made for the incremental data.
-    #
-    # If you set incremental to false, you should pass in a date range
-    # using the :date_from and :date_til keys in the `options` hash.
-    #
     # For more information, contact your support representative at
     # CheckGateway and request the Integration API Specification.
     class CheckGatewayDownloaderGateway
@@ -40,12 +32,17 @@ module ActiveMerchant #:nodoc:
         requires!(options, :login, :password)
         @options = options
       end
-      
-      # If :save_to is a key in the options hash, will attempt to
-      # save the downloaded data to the filepath or IO object specified.
-      def download(incremental = true, options = {})
+
+      # Accepts the following options:
+      #
+      #   :incremental - if true, only returns records that have changed
+      #   :date_from - the start of the date range to query
+      #   :date_to - the end of the date range to query
+      #   :date_to_compare - one of 'DateProcessed' or 'EffectiveEntryDate'
+      #   :returns_only - true to retrieve only Returns and BO Exceptions
+      def download(options = {})
         post = {}
-        post[:Incremental] = incremental ? 'True' : 'False'
+        post[:Incremental] = options[:incremental] ? 'True' : 'False'
         add_format(post, options)
         add_date_info(post, options)
         add_misc_info(post, options)
