@@ -34,20 +34,22 @@ module ActiveMerchant #:nodoc:
       self.live_url = 'https://epn.CheckGateway.com/EpnPublic/FileDownload.aspx'
       self.test_url = 'https://Test.CheckGateway.com/EpnPublic/FileDownload.aspx'
 
-      attr_reader :options
+      attr_reader :options, :data
 
       def initialize(options = {})
         requires!(options, :login, :password)
         @options = options
       end
       
+      # If :save_to is a key in the options hash, will attempt to
+      # save the downloaded data to the filepath or IO object specified.
       def download(incremental = true, options = {})
         post = {}
         post[:Incremental] = incremental ? 'True' : 'False'
         add_format(post, options)
         add_date_info(post, options)
         add_misc_info(post, options)
-        commit(post)
+        commit(post, options)
       end
 
       
@@ -78,10 +80,19 @@ module ActiveMerchant #:nodoc:
         post[:ShortResponse] = 'True' if options[:short_response]
       end
       
-      def commit(parameters)
+      def commit(parameters, options)
         url = test? ? self.test_url : self.live_url
-        data = ssl_post(url, post_data(parameters))
-        parse(data)
+        @data = ssl_post(url, post_data(parameters))
+        save_data(options[:save_to]) if options[:save_to]
+        parse(@data)
+      end
+      
+      def save_data(dest)
+        if dest.kind_of?(IO)
+          dest.write(@data)
+        elsif dest.is_a?(String)
+          File.open(dest, 'w') { |f| f.write(@data) }
+        end
       end
 
       def post_data(parameters = {})

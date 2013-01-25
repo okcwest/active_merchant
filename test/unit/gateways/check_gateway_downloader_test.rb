@@ -13,6 +13,7 @@ class CheckGatewayDownloaderTest < Test::Unit::TestCase
   def test_download
     @gateway.expects(:ssl_post).returns(successful_response)
 
+    assert @gateway.data.nil?
     assert response = @gateway.download(false, @options)
     assert response.is_a?(Array)
     assert response.size > 0
@@ -20,7 +21,38 @@ class CheckGatewayDownloaderTest < Test::Unit::TestCase
       assert record.is_a?(CheckGateway::StatusRecord), "One of the responses was a #{record.class}"
       assert !record.response_type.blank?, "response_type blank for record with line: #{record.raw_line}"
     end
+    assert @gateway.data == successful_response
   end
+  
+  def test_save_to_filepath
+    @gateway.expects(:ssl_post).returns(successful_response)
+
+    filename = '/tmp/check_gateway_download_path.txt'
+    File.delete(filename) if File.exists?(filename)
+
+    @options[:save_to] = filename
+    assert response = @gateway.download(false, @options)
+
+    assert File.exists?(filename)
+    assert File.readable?(filename)
+    assert IO.read(filename) == successful_response
+  end
+  
+  def test_save_to_io
+    @gateway.expects(:ssl_post).returns(successful_response)
+
+    filename = '/tmp/check_gateway_download_io.txt'
+    File.delete(filename) if File.exists?(filename)
+    
+    file_obj = File.open(filename, 'w')
+
+    @options[:save_to] = file_obj
+    assert response = @gateway.download(false, @options)
+    file_obj.close
+
+    assert IO.read(filename) == successful_response
+  end
+  
 
   private
 
