@@ -36,13 +36,18 @@ module ActiveMerchant #:nodoc:
           @raw_line = line
           values = line.strip.split(separator, -1)
           
-          if values.size != STATUS_RECORD_FIELDS.size
+          if values.size < STATUS_RECORD_FIELDS.size
             STDERR.puts("Invalid line received with #{values.size} fields: #{line}")
           else
-            values.each_index do |idx|
-              attr = '@' + STATUS_RECORD_FIELDS[idx].to_s
-              instance_variable_set(attr.to_sym, values[idx])
-            end
+            # In theory there should always be 21 fields.  In practice, sometimes
+            # there are 22, because the bank_account_name actually does have a comma
+            # in it, and the comma isn't escaped by anything.
+            hash = {}
+            0.upto(5).each    { |i| hash[STATUS_RECORD_FIELDS[i]] = values.shift }
+            20.downto(7).each { |i| hash[STATUS_RECORD_FIELDS[i]] = values.pop }
+            hash[:bank_account_name] = values.join(',')
+
+            hash.each { |key, value| instance_variable_set("@#{key}", value) }
           end
         end
         
