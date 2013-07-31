@@ -110,6 +110,10 @@ module ActiveMerchant #:nodoc:
         def description
           combo? ? raw_code : mapping[code]
         end
+        
+        def current_status
+          @code_list.last
+        end
       end
       
       # Part of every real-time response is a numeric Severity code, which
