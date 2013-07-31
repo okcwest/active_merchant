@@ -31,6 +31,8 @@ module ActiveMerchant #:nodoc:
           @code = code.downcase.gsub(/\W/, '_').to_sym
         end
         
+        alias_method :current_status, :code
+        
         def mapping
           @mapping ||= {
             :incomplete           => 'Transaction was saved in the database, but remains in an incompleted state. Transactions should only remain in this status for 1 second.',
