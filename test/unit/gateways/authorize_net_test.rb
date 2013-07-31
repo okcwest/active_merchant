@@ -12,6 +12,66 @@ class AuthorizeNetTest < Test::Unit::TestCase
     @credit_card = credit_card
     @subscription_id = '100748'
     @subscription_status = 'active'
+    @check = check
+  end
+
+  def test_successful_echeck_authorization
+    response = stub_comms do
+      @gateway.authorize(@amount, @check)
+    end.check_request do |endpoint, data, headers|
+      assert_match(/x_method=ECHECK/, data)
+      assert_match(/x_bank_aba_code=244183602/, data)
+      assert_match(/x_bank_acct_num=15378535/, data)
+      assert_match(/x_bank_name=Bank\+of\+Elbonia/, data)
+      assert_match(/x_bank_acct_name=Jim\+Smith/, data)
+      assert_match(/x_echeck_type=WEB/, data)
+      assert_match(/x_bank_check_number=1/, data)
+      assert_match(/x_recurring_billing=FALSE/, data)
+    end.respond_with(successful_authorization_response)
+
+    assert response
+    assert_instance_of Response, response
+    assert_success response
+    assert_equal '508141794', response.authorization
+  end
+
+  def test_successful_echeck_purchase
+    response = stub_comms do
+      @gateway.purchase(@amount, @check)
+    end.check_request do |endpoint, data, headers|
+      assert_match(/x_method=ECHECK/, data)
+      assert_match(/x_bank_aba_code=244183602/, data)
+      assert_match(/x_bank_acct_num=15378535/, data)
+      assert_match(/x_bank_name=Bank\+of\+Elbonia/, data)
+      assert_match(/x_bank_acct_name=Jim\+Smith/, data)
+      assert_match(/x_echeck_type=WEB/, data)
+      assert_match(/x_bank_check_number=1/, data)
+      assert_match(/x_recurring_billing=FALSE/, data)
+    end.respond_with(successful_purchase_response)
+
+    assert response
+    assert_instance_of Response, response
+    assert_success response
+    assert_equal '508141795', response.authorization
+  end
+
+  def test_passing_recurring_flag
+    response = stub_comms do
+      @gateway.purchase(@amount, @check, :recurring => true)
+    end.check_request do |endpoint, data, headers|
+      assert_match(/x_recurring_billing=TRUE/, data)
+    end.respond_with(successful_purchase_response)
+
+    assert_success response
+  end
+
+  def test_failed_echeck_authorization
+    @gateway.expects(:ssl_post).returns(failed_authorization_response)
+
+    assert response = @gateway.authorize(@amount, @check)
+    assert_instance_of Response, response
+    assert_failure response
+    assert_equal '508141794', response.authorization
   end
 
   def test_successful_authorization
@@ -119,6 +179,13 @@ class AuthorizeNetTest < Test::Unit::TestCase
    assert_equal('PRIOR_AUTH_CAPTURE', response.params['action'] )
   end
 
+  def test_authorization_code_included_in_params
+   @gateway.expects(:ssl_post).returns(successful_purchase_response)
+
+   response = @gateway.capture(50, '123456789')
+   assert_equal('d1GENk', response.params['authorization_code'] )
+  end
+
   def test_capture_passing_extra_info
     response = stub_comms do
       @gateway.capture(50, '123456789', :description => "Yo", :order_id => "Sweetness")
@@ -165,7 +232,7 @@ class AuthorizeNetTest < Test::Unit::TestCase
   end
 
   def test_supported_countries
-    assert_equal ['US'], AuthorizeNetGateway.supported_countries
+    assert_equal ['US', 'CA', 'GB'], AuthorizeNetGateway.supported_countries
   end
 
   def test_supported_card_types
@@ -289,6 +356,37 @@ class AuthorizeNetTest < Test::Unit::TestCase
     ActiveMerchant::Billing::AuthorizeNetGateway.application_id = nil
   end
 
+  def test_bad_currency
+    @gateway.expects(:ssl_post).returns(bad_currency_response)
+
+    response = @gateway.purchase(@amount, @credit_card, {:currency => "XYZ"})
+    assert_failure response
+    assert_equal 'The supplied currency code is either invalid, not supported, not allowed for this merchant or doesn\'t have an exchange rate', response.message
+  end
+
+  def test_alternate_currency
+    @gateway.expects(:ssl_post).returns(successful_purchase_response)
+
+    response = @gateway.purchase(@amount, @credit_card, {:currency => "GBP"})
+    assert_success response
+  end
+
+  def test_include_cust_id_for_numeric_values
+   stub_comms do
+      @gateway.purchase(@amount, @credit_card, {:customer => "123"})
+    end.check_request do |method, data|
+      assert data =~ /x_cust_id=123/
+    end.respond_with(successful_authorization_response)
+  end
+
+  def test_dont_include_cust_id_for_non_numeric_values
+   stub_comms do
+      @gateway.purchase(@amount, @credit_card, {:customer => "bob@test.com"})
+    end.check_request do |method, data|
+      assert data !~ /x_cust_id/
+    end.respond_with(successful_authorization_response)
+  end
+
   private
   def post_data_fixture
     'x_encap_char=%24&x_card_num=4242424242424242&x_exp_date=0806&x_card_code=123&x_type=AUTH_ONLY&x_first_name=Longbob&x_version=3.1&x_login=X&x_last_name=Longsen&x_tran_key=Y&x_relay_response=FALSE&x_delim_data=TRUE&x_delim_char=%2C&x_amount=1.01'
@@ -320,6 +418,10 @@ class AuthorizeNetTest < Test::Unit::TestCase
 
   def fraud_review_response
     "$4$,$$,$253$,$Thank you! For security reasons your order is currently being reviewed.$,$$,$X$,$0$,$$,$$,$1.00$,$$,$auth_capture$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$207BCBBF78E85CF174C87AE286B472D2$,$M$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$"
+  end
+
+  def bad_currency_response
+    "$3$,$1$,$39$,$The supplied currency code is either invalid, not supported, not allowed for this merchant or doesn't have an exchange rate.$,$$,$P$,$0$,$$,$$,$1.00$,$$,$auth_capture$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$207BCBBF78E85CF174C87AE286B472D2$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$,$$"
   end
 
   def successful_recurring_response

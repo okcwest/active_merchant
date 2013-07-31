@@ -12,7 +12,8 @@ class RemoteStripeTest < Test::Unit::TestCase
 
     @options = {
       :description => 'ActiveMerchant Test Purchase',
-      :email => 'wow@example.com'
+      :email => 'wow@example.com',
+      :currency => 'CAD'
     }
   end
 
@@ -24,20 +25,38 @@ class RemoteStripeTest < Test::Unit::TestCase
   end
 
   def test_purchase_description
-    assert response = @gateway.purchase(@amount, @credit_card, { :description => "TheDescription", :email => "email@example.com" })
+    assert response = @gateway.purchase(@amount, @credit_card, { :currency => "CAD", :description => "TheDescription", :email => "email@example.com" })
     assert_equal "TheDescription", response.params["description"], "Use the description if it's specified."
 
-    assert response = @gateway.purchase(@amount, @credit_card, { :email => "email@example.com" })
+    assert response = @gateway.purchase(@amount, @credit_card, { :currency => "CAD", :email => "email@example.com" })
     assert_equal "email@example.com", response.params["description"], "Use the email if no description is specified."
 
-    assert response = @gateway.purchase(@amount, @credit_card, { })
+    assert response = @gateway.purchase(@amount, @credit_card, { :currency => "CAD" })
     assert_nil response.params["description"], "No description or email specified."
   end
 
   def test_unsuccessful_purchase
     assert response = @gateway.purchase(@amount, @declined_card, @options)
     assert_failure response
-    assert_equal 'Your card number is invalid', response.message
+    assert_match /card number.* invalid/, response.message
+  end
+
+  def test_authorization_and_capture
+    assert authorization = @gateway.authorize(@amount, @credit_card, @options)
+    assert_success authorization
+    assert !authorization.params["captured"]
+
+    assert capture = @gateway.capture(@amount, authorization.authorization)
+    assert_success capture
+  end
+
+  def test_authorization_and_void
+    assert authorization = @gateway.authorize(@amount, @credit_card, @options)
+    assert_success authorization
+    assert !authorization.params["captured"]
+
+    assert void = @gateway.void(authorization.authorization)
+    assert_success void
   end
 
   def test_successful_void
@@ -69,7 +88,7 @@ class RemoteStripeTest < Test::Unit::TestCase
   end
 
   def test_successful_store
-    assert response = @gateway.store(@credit_card, {:description => "Active Merchant Test Customer", :email => "email@example.com"})
+    assert response = @gateway.store(@credit_card, {:currency => 'CAD', :description => "Active Merchant Test Customer", :email => "email@example.com"})
     assert_success response
     assert_equal "customer", response.params["object"]
     assert_equal "Active Merchant Test Customer", response.params["description"]
@@ -97,6 +116,40 @@ class RemoteStripeTest < Test::Unit::TestCase
     assert response = gateway.purchase(@amount, @credit_card, @options)
     assert_failure response
     assert_equal "Invalid API Key provided: active_merchant_test", response.message
+  end
+
+  def test_application_fee_for_stripe_connect
+    assert response = @gateway.purchase(@amount, @credit_card, @options.merge(:application_fee => 12 ))
+    assert response.params['fee_details'], 'This test will only work if your gateway login is a Stripe Connect access_token.'
+    assert response.params['fee_details'].any? do |fee|
+      (fee['type'] == 'application_fee') && (fee['amount'] == 12)
+    end
+  end
+
+  def test_card_present_purchase
+    @credit_card.track_data = '%B378282246310005^LONGSON/LONGBOB^1705101130504392?'
+    assert response = @gateway.purchase(@amount, @credit_card, @options)
+    assert_success response
+    assert_equal "charge", response.params["object"]
+    assert response.params["paid"]
+  end
+
+  def test_card_present_authorize_and_capture
+    @credit_card.track_data = '%B378282246310005^LONGSON/LONGBOB^1705101130504392?'
+    assert authorization = @gateway.authorize(@amount, @credit_card, @options)
+    assert_success authorization
+    assert !authorization.params["captured"]
+
+    assert capture = @gateway.capture(@amount, authorization.authorization)
+    assert_success capture
+  end
+
+  def test_successful_refund_with_application_fee
+    assert response = @gateway.purchase(@amount, @credit_card, @options.merge(:application_fee => 12))
+    assert response.params['fee_details'], 'This test will only work if your gateway login is a Stripe Connect access_token.'
+    assert refund = @gateway.refund(@amount, response.authorization, :refund_application_fee => true)
+    assert_success refund
+    assert_equal 12, refund.params["fee_details"].first["amount_refunded"]
   end
 
 end

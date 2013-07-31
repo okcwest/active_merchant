@@ -13,6 +13,7 @@ module ActiveMerchant #:nodoc:
     # names.
     #
     # Important Notes
+    # * For checks you can purchase and store.
     # * AVS and CVV only work against the production server.  You will always
     #   get back X for AVS and no response for CVV against the test server.
     # * Nexus is the list of states or provinces where you have a physical
@@ -23,6 +24,9 @@ module ActiveMerchant #:nodoc:
     #   CyberSource what kind of item you are selling.  It is used when
     #   calculating tax/VAT.
     # * All transactions use dollar values.
+    # * To process pinless debit cards throught the pinless debit card
+    #   network, your Cybersource merchant account must accept pinless
+    #   debit card payments.
     class CyberSourceGateway < Gateway
       self.test_url = 'https://ics2wstest.ic3.com/commerce/1.x/transactionProcessor'
       self.live_url = 'https://ics2ws.ic3.com/commerce/1.x/transactionProcessor'
@@ -131,10 +135,11 @@ module ActiveMerchant #:nodoc:
 
       # Purchase is an auth followed by a capture
       # You must supply an order_id in the options hash
-      def purchase(money, creditcard_or_reference, options = {})
+      # options[:pinless_debit_card] => true # attempts to process as pinless debit card
+      def purchase(money, payment_method_or_reference, options = {})
         requires!(options, :order_id)
         setup_address_hash(options)
-        commit(build_purchase_request(money, creditcard_or_reference, options), options)
+        commit(build_purchase_request(money, payment_method_or_reference, options), options)
       end
 
       def void(identification, options = {})
@@ -154,10 +159,10 @@ module ActiveMerchant #:nodoc:
       # Stores a customer subscription/profile with type "on-demand".
       # To charge the card while creating a profile, pass
       # options[:setup_fee] => money
-      def store(creditcard, options = {})
+      def store(payment_method, options = {})
         requires!(options, :order_id)
         setup_address_hash(options)
-        commit(build_create_subscription_request(creditcard, options), options)
+        commit(build_create_subscription_request(payment_method, options), options)
       end
 
       # Updates a customer subscription/profile
@@ -211,6 +216,12 @@ module ActiveMerchant #:nodoc:
         commit(build_tax_calculation_request(creditcard, options), options)
       end
 
+      # Determines if a card can be used for Pinless Debit Card transactions
+      def validate_pinless_debit_card(creditcard, options = {})
+        requires!(options, :order_id)
+        commit(build_validate_pinless_debit_request(creditcard,options), options)
+      end
+
       private
 
       # Create all address hash key value pairs so that we still function if we
@@ -222,7 +233,7 @@ module ActiveMerchant #:nodoc:
 
       def build_auth_request(money, creditcard_or_reference, options)
         xml = Builder::XmlMarkup.new :indent => 2
-        add_creditcard_or_subscription(xml, money, creditcard_or_reference, options)
+        add_payment_method_or_subscription(xml, money, creditcard_or_reference, options)
         add_auth_service(xml)
         add_business_rules_data(xml)
         xml.target!
@@ -250,11 +261,15 @@ module ActiveMerchant #:nodoc:
         xml.target!
       end
 
-      def build_purchase_request(money, creditcard_or_reference, options)
+      def build_purchase_request(money, payment_method_or_reference, options)
         xml = Builder::XmlMarkup.new :indent => 2
-        add_creditcard_or_subscription(xml, money, creditcard_or_reference, options)
-        add_purchase_service(xml, options)
-        add_business_rules_data(xml)
+        add_payment_method_or_subscription(xml, money, payment_method_or_reference, options)
+        if !payment_method_or_reference.is_a?(String) && card_brand(payment_method_or_reference) == 'check'
+          add_check_service(xml)
+        else
+          add_purchase_service(xml, options)
+          add_business_rules_data(xml) unless options[:pinless_debit_card]
+        end
         xml.target!
       end
 
@@ -297,16 +312,22 @@ module ActiveMerchant #:nodoc:
         xml.target!
       end
 
-      def build_create_subscription_request(creditcard, options)
+      def build_create_subscription_request(payment_method, options)
         options[:subscription] = (options[:subscription] || {}).merge(:frequency => "on-demand", :amount => 0, :automatic_renew => false)
 
         xml = Builder::XmlMarkup.new :indent => 2
-        add_address(xml, creditcard, options[:billing_address], options)
+        add_address(xml, payment_method, options[:billing_address], options)
         add_purchase_data(xml, options[:setup_fee] || 0, true, options)
-        add_creditcard(xml, creditcard)
-        add_creditcard_payment_method(xml)
+        if card_brand(payment_method) == 'check'
+          add_check(xml, payment_method)
+          add_check_payment_method(xml)
+          add_check_service(xml, options) if options[:setup_fee]
+        else
+          add_creditcard(xml, payment_method)
+          add_creditcard_payment_method(xml)
+          add_purchase_service(xml, options) if options[:setup_fee]
+        end
         add_subscription(xml, options)
-        add_purchase_service(xml, options) if options[:setup_fee]
         add_subscription_create_service(xml, options)
         add_business_rules_data(xml)
         xml.target!
@@ -335,6 +356,13 @@ module ActiveMerchant #:nodoc:
         xml = Builder::XmlMarkup.new :indent => 2
         add_subscription(xml, options, reference)
         add_subscription_retrieve_service(xml, options)
+        xml.target!
+      end
+
+      def build_validate_pinless_debit_request(creditcard,options)
+        xml = Builder::XmlMarkup.new :indent => 2
+        add_creditcard(xml, creditcard)
+        add_validate_pinless_debit_service(xml)
         xml.target!
       end
 
@@ -372,12 +400,12 @@ module ActiveMerchant #:nodoc:
         end
       end
 
-      def add_address(xml, creditcard, address, options, shipTo = false)
+      def add_address(xml, payment_method, address, options, shipTo = false)
         requires!(options, :email)
 
         xml.tag! shipTo ? 'shipTo' : 'billTo' do
-          xml.tag! 'firstName',             creditcard.first_name             if creditcard
-          xml.tag! 'lastName',              creditcard.last_name              if creditcard
+          xml.tag! 'firstName',             payment_method.first_name             if payment_method
+          xml.tag! 'lastName',              payment_method.last_name              if payment_method
           xml.tag! 'street1',               address[:address1]
           xml.tag! 'street2',               address[:address2]                unless address[:address2].blank?
           xml.tag! 'city',                  address[:city]
@@ -403,6 +431,14 @@ module ActiveMerchant #:nodoc:
         end
       end
 
+      def add_check(xml, check)
+        xml.tag! 'check' do
+          xml.tag! 'accountNumber', check.account_number
+          xml.tag! 'accountType', check.account_type[0]
+          xml.tag! 'bankTransitNumber', check.routing_number
+        end
+      end
+
       def add_tax_service(xml)
         xml.tag! 'taxService', {'run' => 'true'} do
           xml.tag!('nexus', @options[:nexus]) unless @options[:nexus].blank?
@@ -422,8 +458,12 @@ module ActiveMerchant #:nodoc:
       end
 
       def add_purchase_service(xml, options)
-        xml.tag! 'ccAuthService', {'run' => 'true'}
-        xml.tag! 'ccCaptureService', {'run' => 'true'}
+        if options[:pinless_debit_card]
+          xml.tag! 'pinlessDebitService', {'run' => 'true'}
+        else
+          xml.tag! 'ccAuthService', {'run' => 'true'}
+          xml.tag! 'ccCaptureService', {'run' => 'true'}
+        end
       end
 
       def add_void_service(xml, request_id, request_token)
@@ -445,6 +485,10 @@ module ActiveMerchant #:nodoc:
           xml.tag! 'captureRequestID', request_id if request_id
           xml.tag! 'captureRequestToken', request_token if request_token
         end
+      end
+
+      def add_check_service(xml)
+        xml.tag! 'ecDebitService', {'run' => 'true'}
       end
 
       def add_subscription_create_service(xml, options)
@@ -491,15 +535,29 @@ module ActiveMerchant #:nodoc:
         end
       end
 
-      def add_creditcard_or_subscription(xml, money, creditcard_or_reference, options)
-        if creditcard_or_reference.is_a?(String)
-          add_purchase_data(xml, money, true, options)
-          add_subscription(xml, options, creditcard_or_reference)
-        else
-          add_address(xml, creditcard_or_reference, options[:billing_address], options)
-          add_purchase_data(xml, money, true, options)
-          add_creditcard(xml, creditcard_or_reference)
+      def add_check_payment_method(xml)
+        xml.tag! 'subscription' do
+          xml.tag! 'paymentMethod', "check"
         end
+      end
+
+      def add_payment_method_or_subscription(xml, money, payment_method_or_reference, options)
+        if payment_method_or_reference.is_a?(String)
+          add_purchase_data(xml, money, true, options)
+          add_subscription(xml, options, payment_method_or_reference)
+        elsif card_brand(payment_method_or_reference) == 'check'
+          add_address(xml, payment_method_or_reference, options[:billing_address], options)
+          add_purchase_data(xml, money, true, options)
+          add_check(xml, payment_method_or_reference)
+        else
+          add_address(xml, payment_method_or_reference, options[:billing_address], options)
+          add_purchase_data(xml, money, true, options)
+          add_creditcard(xml, payment_method_or_reference)
+        end
+      end
+
+      def add_validate_pinless_debit_service(xml)
+        xml.tag!'pinlessDebitValidateService', {'run' => 'true'}
       end
 
       # Where we actually build the full SOAP request using builder
